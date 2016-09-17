@@ -1,2 +1,2 @@
-# wicher
-Program magazynowy Wicher
+# wicherdb-fakeclient
+Testowy klient systemu WicherDB.
