@@ -1,4 +1,5 @@
 #include "Database.h"
+#define MAX_BUFF 65535
 
 Wicher::Database::Database() : c(false){
     Toolkit::log("Creating Database() singleton...");
@@ -85,15 +86,26 @@ bool Wicher::Database::login(std::string login, std::string password){
 }
 
 static bool send_msg(std::string msg, int sock){
-#ifdef WIN
-	int res = send(sock, msg.c_str(), msg.size() + 1, 0);
-#elif defined(UNI)
-	int res = write(sock, msg.c_str(), msg.size() + 1);
-#endif
-	if(res < 0){
-		Wicher::Toolkit::log("Failed to send message!");
-	}//else std::cerr << "Sent: " << msg << std::endl;
-	return !(res < 0);
+    if(msg.size()+1 > MAX_BUFF){
+        Wicher::Toolkit::log("Failed to send message (message too big)");
+        return false;
+    }
+    uint16_t msize = msg.size() + 1;
+    int res = send(sock, &msize, 2, 0);
+    if(res != 2){
+        Wicher::Toolkit::log("Failed to send message (cannot send msg size)");
+        return false;
+    }
+	res = 0;
+    while(res < msize){
+        int res_tmp = send(sock, msg.c_str(), msize, 0);
+        if(res_tmp < 0){
+            Wicher::Toolkit::log("Failed to send message (error when sending content)");
+            break;
+        }//else std::cerr << "Sent: " << msg << std::endl;
+        res += res_tmp;
+    }
+	return res == msize;
 }
 
 bool Wicher::Database::send(std::string msg){
@@ -101,21 +113,28 @@ bool Wicher::Database::send(std::string msg){
 }
 
 static std::string recv_msg(int sock){
-	char buffer[10241];
-	buffer[0] = '\0';
-#ifdef WIN
-	int res = recv(sock, buffer, 10240, 0);
-#elif defined(UNI)
-	int res = read(sock, buffer, 10240);
-#endif
-	if(!(res < 0) && buffer[res-1] != '\0'){
-		Wicher::Toolkit::log("Got non null-terminated string!");
-		buffer[res] = '\0';
-	}else if(res < 0){
-		Wicher::Toolkit::log("Failed to recv message!");
-	}
-	//std::cerr << "Got: " << buffer << std::endl;
-	return std::string(buffer);
+    uint16_t msize;
+    int res = recv(sock, &msize, 2, 0);
+    if(res != 2){
+        Wicher::Toolkit::log("Failed to recv message (cannot recv msg size)");
+        return std::string();
+    }
+    std::string tr;
+	char buffer[1025];
+    res = 0;
+    while(res < msize){
+        int res_tmp = recv(sock, buffer, 1024, 0);
+        if(res_tmp < 0){
+            Wicher::Toolkit::log("Failed to recv message (error when receiving content)");
+            break;
+        }
+        buffer[1024] = '\0';
+        res += res_tmp;
+        tr += buffer;
+    }
+    if(res == msize){
+        return tr;
+    }else return std::string();
 }
 
 std::string Wicher::Database::recv(){
