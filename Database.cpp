@@ -91,14 +91,14 @@ static bool send_msg(std::string msg, int sock){
         return false;
     }
     uint16_t msize = msg.size() + 1;
-    int res = send(sock, &msize, 2, 0);
+    int res = write(sock, &msize, 2);
     if(res != 2){
         Wicher::Toolkit::log("Failed to send message (cannot send msg size)");
         return false;
     }
 	res = 0;
     while(res < msize){
-        int res_tmp = send(sock, msg.c_str(), msize, 0);
+        int res_tmp = write(sock, msg.c_str(), msize);
         if(res_tmp < 0){
             Wicher::Toolkit::log("Failed to send message (error when sending content)");
             break;
@@ -114,7 +114,7 @@ bool Wicher::Database::send(std::string msg){
 
 static std::string recv_msg(int sock){
     uint16_t msize;
-    int res = recv(sock, &msize, 2, 0);
+    int res = read(sock, &msize, 2);
     if(res != 2){
         Wicher::Toolkit::log("Failed to recv message (cannot recv msg size)");
         return std::string();
@@ -123,7 +123,7 @@ static std::string recv_msg(int sock){
 	char buffer[1025];
     res = 0;
     while(res < msize){
-        int res_tmp = recv(sock, buffer, 1024, 0);
+        int res_tmp = read(sock, buffer, 1024);
         if(res_tmp < 0){
             Wicher::Toolkit::log("Failed to recv message (error when receiving content)");
             break;
